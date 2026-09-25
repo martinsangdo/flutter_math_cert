@@ -1,20 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../logic/providers.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
+import 'quiz_screen.dart';
 import 'widgets/bottom_bar.dart';
 import 'widgets/clay_card.dart';
 import 'widgets/content_width.dart';
 
 String _points(double v) => v == v.roundToDouble() ? '${v.round()}' : v.toStringAsFixed(1);
 
-class ResultScreen extends StatelessWidget {
-  const ResultScreen(this.session, {super.key});
+class ResultScreen extends ConsumerWidget {
+  const ResultScreen(this.session, this.set, {super.key});
 
   final ExamSession session;
+  final ExamSet set;
+
+  /// The next unlocked set after [set] in the curated order, if any.
+  ExamSet? _next(List<ExamSet> sets) {
+    final i = sets.indexWhere((s) => s.id == set.id);
+    return i < 0 ? null : sets.skip(i + 1).where((s) => !s.premium).firstOrNull;
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final next = _next(ref.watch(examSetsProvider).valueOrNull ?? const []);
+    void open(ExamSet s) => Navigator.of(context)
+        .pushReplacement(MaterialPageRoute<void>(builder: (_) => QuizScreen(s)));
+
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final minutes = session.durationSeconds ~/ 60;
@@ -170,11 +184,40 @@ class ResultScreen extends StatelessWidget {
         ),
       ),
       bottomNavigationBar: BottomBar(
-        child: FilledButton.icon(
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.home_rounded),
-          label: const Text('Back to dashboard'),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (next != null) ...[
+              FilledButton.icon(
+                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                onPressed: () => open(next),
+                icon: const Icon(Icons.skip_next_rounded),
+                label: Text('Next: ${next.title}', overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(height: 10),
+            ],
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                    onPressed: () => open(set),
+                    icon: const Icon(Icons.replay_rounded),
+                    label: const Text('Retake'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: (next == null ? FilledButton.icon : FilledButton.tonalIcon)(
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.home_rounded),
+                    label: const Text('Dashboard'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

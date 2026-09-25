@@ -71,6 +71,14 @@ class ExamDateNotifier extends Notifier<DateTime?> {
 
 final examDateProvider = NotifierProvider<ExamDateNotifier, DateTime?>(ExamDateNotifier.new);
 
+/// Published practice sets for the student's exam level, with their best scores.
+final examSetsProvider = FutureProvider.autoDispose<List<ExamSet>>((ref) async {
+  final cert = await ref.watch(selectedCertProvider.future);
+  final level = cert.levelForGrade(ref.watch(selectionProvider)!.grade);
+  if (level == null) return const [];
+  return ref.watch(supabaseServiceProvider).fetchExamSets(level.id);
+});
+
 final homeDataProvider = FutureProvider.autoDispose<HomeData>((ref) async {
   final cert = await ref.watch(selectedCertProvider.future);
   return ref.watch(supabaseServiceProvider).fetchHomeData(cert);

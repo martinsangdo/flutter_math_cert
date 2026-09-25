@@ -5,7 +5,7 @@ import '../logic/providers.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import 'onboarding_screen.dart';
-import 'quiz_screen.dart';
+import 'practice_sets.dart';
 import 'widgets/ad_banner.dart';
 import 'widgets/app_logo.dart';
 import 'widgets/clay_card.dart';
@@ -15,13 +15,6 @@ import 'widgets/message_view.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
-
-  Future<void> _practice(BuildContext context, WidgetRef ref) async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const QuizScreen()));
-    ref.invalidate(homeDataProvider);
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -58,13 +51,11 @@ class HomeScreen extends ConsumerWidget {
           onAction: () => ref.invalidate(homeDataProvider),
         ),
         data: (d) => RefreshIndicator(
-          onRefresh: () => ref.refresh(homeDataProvider.future),
-          child: ContentWidth(
-            child: _Dashboard(
-              data: d,
-              onPractice: () => _practice(context, ref),
-            ),
-          ),
+          onRefresh: () {
+            ref.invalidate(examSetsProvider);
+            return ref.refresh(homeDataProvider.future);
+          },
+          child: ContentWidth(child: _Dashboard(data: d)),
         ),
       ),
       bottomNavigationBar: const AdBanner(),
@@ -73,10 +64,9 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _Dashboard extends ConsumerWidget {
-  const _Dashboard({required this.data, required this.onPractice});
+  const _Dashboard({required this.data});
 
   final HomeData data;
-  final VoidCallback onPractice;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -90,33 +80,13 @@ class _Dashboard extends ConsumerWidget {
       groups.putIfAbsent(t.domain, () => []).add(t);
     }
 
-    final questionCount = level?.totalQuestions;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: [
         _Hero(cert: data.cert, grade: grade, level: level, streak: data.streak),
         const SizedBox(height: 20),
-        FilledButton.icon(
-          style: FilledButton.styleFrom(
-            backgroundColor: scheme.secondary,
-            foregroundColor: scheme.onSecondary,
-            minimumSize: const Size.fromHeight(60),
-          ),
-          onPressed: onPractice,
-          icon: const Icon(Icons.play_arrow_rounded, size: 30),
-          label: const Text('Start practice exam'),
-        ),
-        const SizedBox(height: 8),
-        Center(
-          child: Text(
-            [
-              if (questionCount != null) '$questionCount questions',
-              '${data.cert.timeMinutes} minutes',
-            ].join(' · '),
-            style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ),
+        const PracticeSetsSection(),
         const SizedBox(height: 28),
         Text('Your skill tree', style: text.titleLarge),
         const SizedBox(height: 12),

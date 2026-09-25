@@ -124,3 +124,4 @@ app.*.symbols
 # Per-environment Supabase/AdMob config (copy env/example.json to env/dev.json, env/prod.json)
 env/*.json
 !env/example.json
+.DS_Store

@@ -6,7 +6,6 @@ import '../models/models.dart';
 import 'providers.dart';
 
 const pageSize = 10;
-const _fallbackQuestionCount = 20;
 
 class QuizState {
   const QuizState({
@@ -56,15 +55,15 @@ class QuizState {
       );
 }
 
-class QuizController extends AutoDisposeNotifier<QuizState> {
+/// Runs one attempt at a practice set (the family argument).
+class QuizController extends AutoDisposeFamilyNotifier<QuizState, ExamSet> {
   late Certification _cert;
-  ExamLevel? _level;
   late DateTime _startedAt;
   var _disposed = false;
   var _finishing = false;
 
   @override
-  QuizState build() {
+  QuizState build(ExamSet arg) {
     ref.onDispose(() => _disposed = true);
     Future.microtask(load);
     return const QuizState();
@@ -72,19 +71,16 @@ class QuizController extends AutoDisposeNotifier<QuizState> {
 
   Future<void> load() async {
     state = state.copyWith(loading: true);
-    final selection = ref.read(selectionProvider)!;
     final service = ref.read(supabaseServiceProvider);
     try {
       _cert = await ref.read(selectedCertProvider.future);
-      _level = _cert.levelForGrade(selection.grade);
-      final target = _level?.totalQuestions ?? _fallbackQuestionCount;
+      final target = arg.questionCount;
 
       final loaded = <Question>[];
       // Paginated: pages of [pageSize] until the exam is full or rows run out.
       for (var offset = 0; loaded.length < target; offset += pageSize) {
         final page = await service.fetchQuestions(
-          certId: selection.certId,
-          gradeLevel: selection.grade,
+          setId: arg.id,
           limit: min(pageSize, target - loaded.length),
           offset: offset,
         );
@@ -93,7 +89,7 @@ class QuizController extends AutoDisposeNotifier<QuizState> {
         if (offset == 0) {
           _startedAt = DateTime.now();
           state = state.copyWith(
-            deadline: _startedAt.add(Duration(minutes: _cert.timeMinutes)),
+            deadline: _startedAt.add(Duration(minutes: arg.minutes(_cert))),
           );
         }
         // Show the first page immediately; keep appending the rest quietly.
@@ -158,7 +154,8 @@ class QuizController extends AutoDisposeNotifier<QuizState> {
 
     final session = ExamSession(
       certId: _cert.id,
-      levelId: _level?.id,
+      levelId: arg.levelId,
+      setId: arg.id,
       score: max(0, score),
       maxScore: maxScore,
       correct: correct,
@@ -169,9 +166,14 @@ class QuizController extends AutoDisposeNotifier<QuizState> {
     try {
       await service.submitExamResult(session);
     } catch (_) {}
+    // Refresh streak, mastery and the set's best score behind this screen.
+    if (!_disposed) {
+      ref.invalidate(homeDataProvider);
+      ref.invalidate(examSetsProvider);
+    }
     return session;
   }
 }
 
-final quizProvider =
-    NotifierProvider.autoDispose<QuizController, QuizState>(QuizController.new);
+final quizProvider = NotifierProvider.autoDispose
+    .family<QuizController, QuizState, ExamSet>(QuizController.new);

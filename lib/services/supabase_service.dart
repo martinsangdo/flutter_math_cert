@@ -43,33 +43,75 @@ class SupabaseService {
     }
   }
 
-  /// One page of gradable questions (with their topic title) for the exam
-  /// level that covers [gradeLevel]. Falls back to the offline cache when the
-  /// network call fails.
-  Future<List<Question>> fetchQuestions({
-    required String certId,
-    required int gradeLevel,
-    int limit = 10,
-    int offset = 0,
-  }) async {
-    final cacheKey = '$certId:$gradeLevel:$offset:$limit';
+  /// Published practice sets of an exam level, in curated order, each with the
+  /// student's best score. Sets without questions are hidden. The list is
+  /// cached for offline use; scores are best-effort.
+  Future<List<ExamSet>> fetchExamSets(int levelId) async {
+    final cacheKey = 'sets:$levelId';
+    List<ExamSet> sets;
     try {
       await _uid();
       final rows = await _client
-          .from('questions')
+          .from('exam_sets')
           .select(
-            'id, topic_id, question_type, stem_text, latex_content, image_url, '
-            'options_json, correct_answer, points, penalty_points, '
-            'kid_friendly_hint, detailed_solution_latex, '
-            'topics(title), exam_levels!inner(id)',
+            'id, level_id, title, description, year, time_minutes, access_tier, '
+            'exam_set_questions(count)',
           )
-          .eq('certification_id', certId)
-          .neq('question_type', 'PROOF') // proofs can't be auto-graded
-          .lte('exam_levels.target_grade_min', gradeLevel)
-          .gte('exam_levels.target_grade_max', gradeLevel)
-          .order('id')
-          .range(offset, offset + limit - 1);
+          .eq('level_id', levelId)
+          .order('sort_order')
+          .order('id');
       final json = jsonEncode(rows);
+      await _cache.writePref(cacheKey, json);
+      sets = parseExamSets(json);
+    } catch (e) {
+      debugPrint('fetchExamSets failed: $e');
+      final cached = _cache.readPref(cacheKey);
+      if (cached == null) rethrow;
+      sets = parseExamSets(cached);
+    }
+    final best = await _bestPercentBySet();
+    return [
+      for (final s in sets)
+        if (s.questionCount > 0) s.withBest(best[s.id]),
+    ];
+  }
+
+  Future<Map<int, double>> _bestPercentBySet() async {
+    try {
+      final uid = await _uid();
+      final rows = await _client
+          .from('exam_sessions')
+          .select('set_id, score, max_score')
+          .eq('user_id', uid);
+      return bestPercentBySet(rows);
+    } catch (e) {
+      debugPrint('best scores failed: $e');
+      return const {};
+    }
+  }
+
+  /// One page of gradable questions of [setId], in the set's order. Falls back
+  /// to the offline cache when the network call fails.
+  Future<List<Question>> fetchQuestions({
+    required int setId,
+    int limit = 10,
+    int offset = 0,
+  }) async {
+    final cacheKey = 'set:$setId:$offset:$limit';
+    try {
+      await _uid();
+      final rows = await _client
+          .from('exam_set_questions')
+          .select(
+            'questions!inner(id, topic_id, question_type, stem_text, latex_content, '
+            'image_url, options_json, correct_answer, points, penalty_points, '
+            'kid_friendly_hint, detailed_solution_latex, topics(title))',
+          )
+          .eq('set_id', setId)
+          .neq('questions.question_type', 'PROOF') // proofs can't be auto-graded
+          .order('position')
+          .range(offset, offset + limit - 1);
+      final json = jsonEncode([for (final r in rows) r['questions']]);
       await _cache.writeQuestions(cacheKey, json);
       return parseQuestions(json);
     } catch (e) {
@@ -131,6 +173,21 @@ class SupabaseService {
       ],
     );
   }
+}
+
+/// Best score ratio (0-1) per set from `exam_sessions` rows. Sessions outside
+/// a set, or saved without a max score, are ignored.
+Map<int, double> bestPercentBySet(List<dynamic> sessions) {
+  final best = <int, double>{};
+  for (final r in sessions) {
+    final row = r as Map;
+    final setId = row['set_id'] as int?;
+    final max = (row['max_score'] as num?)?.toDouble() ?? 0;
+    if (setId == null || max <= 0) continue;
+    final ratio = ((row['score'] as num).toDouble() / max).clamp(0.0, 1.0);
+    if (ratio > (best[setId] ?? -1)) best[setId] = ratio;
+  }
+  return best;
 }
 
 /// `completed_at` is `timestamp` (no zone) written by a UTC server, so a value

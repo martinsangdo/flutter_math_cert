@@ -54,6 +54,71 @@ void main() {
     expect(cert.negativeMarking, isFalse);
   });
 
+  test('parses an exam set with its question count and time fallback', () {
+    final set = ExamSet.fromJson({
+      'id': 4,
+      'level_id': 2,
+      'title': '2023 Past Paper',
+      'year': 2023,
+      'access_tier': 'free',
+      'exam_set_questions': [
+        {'count': 25},
+      ],
+    });
+    expect(set.questionCount, 25);
+    expect(set.premium, isFalse);
+    expect(set.timeMinutes, isNull);
+    final cert = Certification.fromJson({
+      'id': 'IKMC',
+      'full_name': 'Math Kangaroo',
+      'min_grade': 1,
+      'max_grade': 12,
+      'default_time_minutes': 75,
+    });
+    expect(set.minutes(cert), 75);
+    expect(set.withBest(0.8).bestPercent, 0.8);
+
+    final premium = ExamSet.fromJson({
+      'id': 5,
+      'level_id': 2,
+      'title': 'Advanced',
+      'time_minutes': 40,
+      'access_tier': 'premium',
+      'exam_set_questions': <Map<String, int>>[],
+    });
+    expect(premium.premium, isTrue);
+    expect(premium.questionCount, 0);
+    expect(premium.minutes(cert), 40);
+  });
+
+  test('best score per set ignores sessions outside a set', () {
+    final best = bestPercentBySet([
+      {'set_id': 1, 'score': 10, 'max_score': 20},
+      {'set_id': 1, 'score': 15.5, 'max_score': 20},
+      {'set_id': 2, 'score': 3, 'max_score': 0},
+      {'set_id': null, 'score': 9, 'max_score': 10},
+      {'set_id': 3, 'score': 5, 'max_score': null},
+    ]);
+    expect(best, {1: 0.775});
+  });
+
+  test('exam session row carries set and max score', () {
+    const session = ExamSession(
+      certId: 'IKMC',
+      levelId: 2,
+      setId: 4,
+      score: 12,
+      maxScore: 24,
+      correct: 12,
+      total: 24,
+      durationSeconds: 600,
+      topics: {},
+    );
+    expect(session.toRow()['set_id'], 4);
+    expect(session.toRow()['max_score'], 24);
+    expect(session.passed, isTrue);
+  });
+
   test('timestamps without a zone are read as UTC', () {
     expect(parseTimestamp('2026-09-25T10:00:00.5').isUtc, isFalse);
     expect(parseTimestamp('2026-09-25T10:00:00.5').toUtc(), DateTime.utc(2026, 9, 25, 10, 0, 0, 500));

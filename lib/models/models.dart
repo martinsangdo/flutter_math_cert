@@ -77,6 +77,71 @@ class Selection {
   final int grade;
 }
 
+/// A practice paper curated in the `exam_sets` table; it belongs to one exam level.
+class ExamSet {
+  const ExamSet({
+    required this.id,
+    required this.levelId,
+    required this.title,
+    this.description,
+    this.year,
+    this.timeMinutes,
+    required this.questionCount,
+    required this.premium,
+    this.bestPercent,
+  });
+
+  /// Parses an `exam_sets` row with its embedded `exam_set_questions(count)`.
+  factory ExamSet.fromJson(Map<String, dynamic> json) {
+    final counts = json['exam_set_questions'] as List? ?? const [];
+    return ExamSet(
+      id: json['id'] as int,
+      levelId: json['level_id'] as int,
+      title: json['title'] as String,
+      description: json['description'] as String?,
+      year: json['year'] as int?,
+      timeMinutes: json['time_minutes'] as int?,
+      questionCount: counts.isEmpty ? 0 : (counts.first as Map)['count'] as int,
+      premium: json['access_tier'] == 'premium',
+    );
+  }
+
+  final int id;
+  final int levelId;
+  final String title;
+  final String? description;
+  final int? year;
+
+  /// Null means the contest's default time limit.
+  final int? timeMinutes;
+  final int questionCount;
+
+  /// No purchase flow exists yet, so a premium set is shown locked.
+  final bool premium;
+
+  /// The student's best score on this set, 0-1. Null until attempted.
+  final double? bestPercent;
+
+  int minutes(Certification cert) => timeMinutes ?? cert.timeMinutes;
+
+  ExamSet withBest(double? percent) => ExamSet(
+        id: id,
+        levelId: levelId,
+        title: title,
+        description: description,
+        year: year,
+        timeMinutes: timeMinutes,
+        questionCount: questionCount,
+        premium: premium,
+        bestPercent: percent,
+      );
+}
+
+List<ExamSet> parseExamSets(String rawJson) => [
+      for (final row in jsonDecode(rawJson) as List)
+        ExamSet.fromJson(row as Map<String, dynamic>),
+    ];
+
 /// Compares numerically when both sides are integers, otherwise as
 /// case-insensitive trimmed text (option letters).
 bool answersMatch(String? given, String expected) {
@@ -171,6 +236,7 @@ class ExamSession {
   const ExamSession({
     required this.certId,
     this.levelId,
+    this.setId,
     required this.score,
     required this.maxScore,
     required this.correct,
@@ -185,6 +251,7 @@ class ExamSession {
 
   final String certId;
   final int? levelId;
+  final int? setId;
   final double score;
   final double maxScore;
   final int correct;
@@ -206,7 +273,9 @@ class ExamSession {
   Map<String, dynamic> toRow() => {
         'certification_id': certId,
         'level_id': levelId,
+        'set_id': setId,
         'score': score,
+        'max_score': maxScore,
         'total_time_seconds': durationSeconds,
         'passed_threshold': passed,
       };

@@ -17,7 +17,9 @@ import 'widgets/message_view.dart';
 import 'widgets/scratchpad.dart';
 
 class QuizScreen extends ConsumerStatefulWidget {
-  const QuizScreen({super.key});
+  const QuizScreen(this.set, {super.key});
+
+  final ExamSet set;
 
   @override
   ConsumerState<QuizScreen> createState() => _QuizScreenState();
@@ -38,17 +40,17 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
   Future<void> _finish() async {
     if (_submitting) return;
     setState(() => _submitting = true);
-    final session = await ref.read(quizProvider.notifier).finish();
+    final session = await ref.read(quizProvider(widget.set).notifier).finish();
     if (!mounted || session == null) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => ResultScreen(session)),
+      MaterialPageRoute<void>(builder: (_) => ResultScreen(session, widget.set)),
     );
   }
 
   void _next() {
     _integerController.clear();
     setState(() => _drawing = false);
-    ref.read(quizProvider.notifier).next();
+    ref.read(quizProvider(widget.set).notifier).next();
   }
 
   Future<void> _watchAdForHint() async {
@@ -57,7 +59,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
     if (!mounted) return;
     setState(() => _adBusy = false);
     if (earned) {
-      ref.read(quizProvider.notifier).unlockHint();
+      ref.read(quizProvider(widget.set).notifier).unlockHint();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -92,8 +94,8 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final quiz = ref.watch(quizProvider);
-    final controller = ref.read(quizProvider.notifier);
+    final quiz = ref.watch(quizProvider(widget.set));
+    final controller = ref.read(quizProvider(widget.set).notifier);
     final question = quiz.current;
 
     return PopScope(
@@ -180,7 +182,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
               icon: Icons.quiz_rounded,
               title: 'No questions yet',
               detail:
-                  'There are no questions for this contest and grade. Check back soon.',
+                  'This practice exam has no questions yet. Check back soon.',
             )
           : MessageView(
               icon: Icons.cloud_off_rounded,
