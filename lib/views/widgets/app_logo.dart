@@ -13,7 +13,7 @@ class AppLogo extends StatelessWidget {
             'assets/icon/icon.png',
             width: size,
             height: size,
-            cacheWidth: (size * 3).round(), // decode small; the source is 512px
+            cacheWidth: (size * 3).round(), // decode small; the source is 1024px
           ),
         ),
       );
