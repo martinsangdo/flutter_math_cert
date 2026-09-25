@@ -87,6 +87,11 @@ void main() {
     expect(cache.readQuestions('k3'), page);
     expect(cache.questionCacheBytes, lessThan(CacheService.maxBytes));
 
+    await cache.writePref('exam:X', '2026-12-01');
+    expect(cache.readPref('exam:X'), '2026-12-01');
+    await cache.removePref('exam:X');
+    expect(cache.readPref('exam:X'), isNull);
+
     await Hive.close();
     await dir.delete(recursive: true);
   });

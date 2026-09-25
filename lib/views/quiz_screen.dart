@@ -7,8 +7,13 @@ import '../logic/quiz_controller.dart';
 import '../models/models.dart';
 import 'result_screen.dart';
 import 'widgets/ad_banner.dart';
-import 'widgets/countdown_text.dart';
+import 'widgets/bottom_bar.dart';
+import 'widgets/clay_card.dart';
+import 'widgets/content_width.dart';
+import 'widgets/countdown.dart';
 import 'widgets/latex_text.dart';
+import 'widgets/question_image.dart';
+import 'widgets/message_view.dart';
 import 'widgets/scratchpad.dart';
 
 class QuizScreen extends ConsumerStatefulWidget {
@@ -55,7 +60,11 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
       ref.read(quizProvider.notifier).unlockHint();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ad not available. Watch it to the end to unlock the hint.')),
+        const SnackBar(
+          content: Text(
+            'Ad not available. Watch it to the end to unlock the hint.',
+          ),
+        ),
       );
     }
   }
@@ -67,8 +76,14 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
         title: const Text('Leave the exam?'),
         content: const Text('Your answers will not be saved.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Stay')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Leave')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Stay'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Leave'),
+          ),
         ],
       ),
     );
@@ -88,57 +103,70 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(question == null ? 'Practice' : 'Question ${quiz.index + 1} / ${quiz.questions.length}'),
+          automaticallyImplyLeading: false,
+          leading: IconButton(
+            tooltip: 'Leave exam',
+            icon: const Icon(Icons.close_rounded),
+            onPressed: _confirmExit,
+          ),
+          title: Text(
+            question == null
+                ? 'Practice'
+                : 'Question ${quiz.index + 1} of ${quiz.questions.length}',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           actions: [
             if (quiz.deadline != null)
               Padding(
                 padding: const EdgeInsets.only(right: 16),
-                child: Center(
-                  child: CountdownText(
-                    deadline: quiz.deadline!,
-                    format: formatClock,
-                    onDone: _finish,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                child: Countdown(
+                  deadline: quiz.deadline!,
+                  onDone: _finish,
+                  builder: (_, remaining) => _TimerPill(remaining),
                 ),
               ),
           ],
-          bottom: question == null
-              ? null
-              : PreferredSize(
-                  preferredSize: const Size.fromHeight(4),
-                  child: LinearProgressIndicator(value: (quiz.index + 1) / quiz.questions.length),
-                ),
         ),
         body: _body(quiz, question, controller),
         bottomNavigationBar: question == null
             ? null
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    child: Row(
-                      children: [
-                        IconButton.filledTonal(
-                          tooltip: _drawing ? 'Stop drawing' : 'Scratchpad',
-                          isSelected: _drawing,
-                          icon: const Icon(Icons.edit_outlined),
-                          selectedIcon: const Icon(Icons.edit_off_outlined),
-                          onPressed: () => setState(() => _drawing = !_drawing),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: _submitting ? null : (quiz.isLast ? _finish : _next),
-                            child: Text(quiz.isLast ? 'Finish' : 'Next'),
-                          ),
-                        ),
-                      ],
+            : BottomBar(
+                footer: const AdBanner(),
+                child: Row(
+                  children: [
+                    FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(64, 56),
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onPrimaryContainer,
+                      ),
+                      onPressed: () => setState(() => _drawing = !_drawing),
+                      icon: Icon(
+                        _drawing ? Icons.check_rounded : Icons.draw_rounded,
+                      ),
+                      label: Text(_drawing ? 'Done' : 'Draw'),
                     ),
-                  ),
-                  const AdBanner(),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _submitting
+                            ? null
+                            : (quiz.isLast ? _finish : _next),
+                        icon: Icon(
+                          quiz.isLast
+                              ? Icons.flag_rounded
+                              : Icons.arrow_forward_rounded,
+                        ),
+                        iconAlignment: IconAlignment.end,
+                        label: Text(quiz.isLast ? 'Finish' : 'Next'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
       ),
     );
@@ -147,112 +175,315 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
   Widget _body(QuizState quiz, Question? question, QuizController controller) {
     if (quiz.loading) return const Center(child: CircularProgressIndicator());
     if (question == null) {
-      return Center(
-        child: quiz.error == null
-            ? const Text('No questions for this contest and grade yet.')
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Could not load questions.'),
-                  const SizedBox(height: 8),
-                  FilledButton(onPressed: controller.load, child: const Text('Retry')),
-                ],
-              ),
-      );
+      return quiz.error == null
+          ? const MessageView(
+              icon: Icons.quiz_rounded,
+              title: 'No questions yet',
+              detail:
+                  'There are no questions for this contest and grade. Check back soon.',
+            )
+          : MessageView(
+              icon: Icons.cloud_off_rounded,
+              title: 'Could not load questions',
+              detail: 'Check your connection and try again.',
+              onAction: controller.load,
+            );
     }
 
     final given = quiz.answers[question.id];
-    return Stack(
-      children: [
-        SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(question.topicTitle, style: Theme.of(context).textTheme.labelMedium),
-              const SizedBox(height: 8),
-              LatexText(question.stem, style: Theme.of(context).textTheme.titleLarge),
-              if (question.latex?.isNotEmpty ?? false) ...[
-                const SizedBox(height: 12),
-                LatexBlock(question.latex!),
-              ],
-              if (question.imageUrl?.isNotEmpty ?? false) ...[
-                const SizedBox(height: 12),
-                Image.network(
-                  question.imageUrl!,
-                  height: 200,
-                  cacheWidth: 720, // decode small: keeps RAM low on 2GB phones
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                ),
-              ],
-              const SizedBox(height: 24),
-              if (question.type == QuestionType.mcq)
-                for (final option in question.options)
-                  _OptionTile(
-                    label: option.key,
-                    latex: option.value,
-                    selected: given == option.key,
-                    onTap: () => controller.answer(option.key),
-                  )
-              else
-                TextField(
-                  controller: _integerController,
-                  keyboardType: const TextInputType.numberWithOptions(signed: true),
-                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[-0-9]'))],
-                  decoration: const InputDecoration(
-                    labelText: 'Your answer (integer)',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: controller.answer,
-                ),
-              const SizedBox(height: 24),
-              _hint(quiz, question),
-            ],
+    return ContentWidth(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: ExcludeSemantics(
+              child: LinearProgressIndicator(
+                value: (quiz.index + 1) / quiz.questions.length,
+              ),
+            ),
           ),
-        ),
-        Positioned.fill(child: ScratchPad(key: ValueKey(question.id), enabled: _drawing)),
-      ],
+          Expanded(
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _QuestionCard(question),
+                      const SizedBox(height: 20),
+                      if (question.type == QuestionType.mcq)
+                        for (final option in question.options)
+                          _OptionTile(
+                            letter: option.key,
+                            latex: option.value,
+                            selected: given == option.key,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              controller.answer(option.key);
+                            },
+                          )
+                      else
+                        ClayCard(
+                          padding: const EdgeInsets.all(12),
+                          child: TextField(
+                            controller: _integerController,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineSmall,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              signed: true,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp('[-0-9]'),
+                              ),
+                            ],
+                            decoration: const InputDecoration(
+                              labelText: 'Type your answer (a whole number)',
+                            ),
+                            onChanged: controller.answer,
+                          ),
+                        ),
+                      const SizedBox(height: 20),
+                      _hint(quiz, question),
+                    ],
+                  ),
+                ),
+                Positioned.fill(
+                  child: ScratchPad(
+                    key: ValueKey(question.id),
+                    enabled: _drawing,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _hint(QuizState quiz, Question question) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
     if (!quiz.hinted.contains(question.id)) {
-      return OutlinedButton.icon(
-        onPressed: _adBusy ? null : _watchAdForHint,
-        icon: _adBusy
-            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Icon(Icons.ondemand_video),
-        label: const Text('Watch ad for step-by-step hint'),
+      return Column(
+        children: [
+          OutlinedButton.icon(
+            onPressed: _adBusy ? null : _watchAdForHint,
+            icon: _adBusy
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 3),
+                  )
+                : const Icon(Icons.play_circle_rounded),
+            label: const Text('Watch an ad for a hint'),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Unlocks the hint and the step-by-step solution.',
+            style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+        ],
       );
     }
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (question.hint?.isNotEmpty ?? false) ...[
-              LatexText(question.hint!),
-              const SizedBox(height: 8),
-            ],
-            LatexText(question.solution),
+    final body = text.bodyLarge?.copyWith(
+      color: scheme.onSecondaryContainer,
+      fontSize: 17,
+    );
+    return ClayCard(
+      color: scheme.secondaryContainer,
+      borderColor: scheme.secondary,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (question.hint?.isNotEmpty ?? false) ...[
+            _HintHeader(
+              icon: Icons.lightbulb_rounded,
+              label: 'Hint',
+              color: scheme.onSecondaryContainer,
+            ),
+            const SizedBox(height: 6),
+            LatexText(question.hint!, style: body),
+            const SizedBox(height: 14),
           ],
+          _HintHeader(
+            icon: Icons.stairs_rounded,
+            label: 'Step-by-step solution',
+            color: scheme.onSecondaryContainer,
+          ),
+          const SizedBox(height: 6),
+          LatexText(question.solution, style: body),
+        ],
+      ),
+    );
+  }
+}
+
+class _HintHeader extends StatelessWidget {
+  const _HintHeader({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(icon, color: color, size: 22),
+      const SizedBox(width: 8),
+      Text(
+        label,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(color: color),
+      ),
+    ],
+  );
+}
+
+class _TimerPill extends StatelessWidget {
+  const _TimerPill(this.remaining);
+
+  final Duration remaining;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final urgent = remaining < const Duration(minutes: 1);
+    final fg = urgent ? scheme.onErrorContainer : scheme.onPrimaryContainer;
+    return Semantics(
+      label:
+          'Time left ${remaining.inMinutes} minutes ${remaining.inSeconds % 60} seconds',
+      excludeSemantics: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: urgent ? scheme.errorContainer : scheme.primaryContainer,
+          borderRadius: BorderRadius.circular(99),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.timer_rounded, size: 20, color: fg),
+              const SizedBox(width: 4),
+              Text(
+                formatClock(remaining),
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: fg,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
+class _QuestionCard extends StatelessWidget {
+  const _QuestionCard(this.question);
+
+  final Question question;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return ClayCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Flexible(
+                child: _Chip(
+                  label: question.topicTitle,
+                  background: scheme.tertiaryContainer,
+                  foreground: scheme.onTertiaryContainer,
+                ),
+              ),
+              const SizedBox(width: 8),
+              _Chip(
+                label:
+                    '${_fmt(question.points)} pt${question.points == 1 ? '' : 's'}',
+                background: scheme.primaryContainer,
+                foreground: scheme.onPrimaryContainer,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          LatexText(
+            question.stem,
+            style: text.bodyLarge?.copyWith(fontSize: 20, height: 1.45),
+          ),
+          if (question.latex?.isNotEmpty ?? false) ...[
+            const SizedBox(height: 14),
+            LatexBlock(question.latex!),
+          ],
+          if (question.imageUrl?.isNotEmpty ?? false) ...[
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: QuestionImage(question.imageUrl!),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static String _fmt(double v) =>
+      v == v.roundToDouble() ? '${v.round()}' : v.toStringAsFixed(1);
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
+
+  final String label;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: background,
+      borderRadius: BorderRadius.circular(99),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(
+          context,
+        ).textTheme.labelLarge?.copyWith(color: foreground, fontSize: 14),
+      ),
+    ),
+  );
+}
+
 class _OptionTile extends StatelessWidget {
   const _OptionTile({
-    required this.label,
+    required this.letter,
     required this.latex,
     required this.selected,
     required this.onTap,
   });
 
-  final String label;
+  final String letter;
   final String latex;
   final bool selected;
   final VoidCallback onTap;
@@ -260,24 +491,48 @@ class _OptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: selected ? scheme.primaryContainer : scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                CircleAvatar(radius: 14, child: Text(label)),
-                const SizedBox(width: 12),
-                Expanded(child: LatexText(latex)),
-              ],
+      child: ClayCard(
+        onTap: onTap,
+        selected: selected,
+        semanticLabel: 'Option $letter, ${latex.replaceAll(r'$', '')}',
+        color: selected ? scheme.primaryContainer : null,
+        borderColor: selected ? scheme.primary : null,
+        borderWidth: selected ? 3 : 2,
+        radius: 18,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: selected
+                  ? scheme.primary
+                  : scheme.surfaceContainerHighest,
+              foregroundColor: selected ? scheme.onPrimary : scheme.onSurface,
+              child: Text(
+                letter,
+                style: text.titleSmall?.copyWith(
+                  color: selected ? scheme.onPrimary : scheme.onSurface,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: LatexText(
+                latex,
+                style: text.bodyLarge?.copyWith(
+                  fontSize: 18,
+                  color: selected
+                      ? scheme.onPrimaryContainer
+                      : scheme.onSurface,
+                ),
+              ),
+            ),
+            if (selected)
+              Icon(Icons.check_circle_rounded, color: scheme.primary),
+          ],
         ),
       ),
     );

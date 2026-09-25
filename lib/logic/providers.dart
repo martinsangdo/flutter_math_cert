@@ -61,6 +61,12 @@ class ExamDateNotifier extends Notifier<DateTime?> {
     await ref.read(cacheServiceProvider).writePref(_key, date.toIso8601String());
     state = date;
   }
+
+  /// Hides the countdown until the student sets a date again.
+  Future<void> clear() async {
+    await ref.read(cacheServiceProvider).removePref(_key);
+    state = null;
+  }
 }
 
 final examDateProvider = NotifierProvider<ExamDateNotifier, DateTime?>(ExamDateNotifier.new);

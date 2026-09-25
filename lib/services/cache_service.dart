@@ -38,4 +38,6 @@ class CacheService {
   String? readPref(String key) => _prefs.get(key);
 
   Future<void> writePref(String key, String value) => _prefs.put(key, value);
+
+  Future<void> removePref(String key) => _prefs.delete(key);
 }

@@ -8,34 +8,25 @@ String formatClock(Duration d) {
   return '$m:$s';
 }
 
-String formatDaysLeft(Duration d) {
-  final h = (d.inHours % 24).toString().padLeft(2, '0');
-  final m = (d.inMinutes % 60).toString().padLeft(2, '0');
-  final s = (d.inSeconds % 60).toString().padLeft(2, '0');
-  return '${d.inDays}d ${h}h ${m}m ${s}s';
-}
-
-/// Ticks once a second and rebuilds only this Text, so the rest of the screen
-/// is untouched by the timer.
-class CountdownText extends StatefulWidget {
-  const CountdownText({
+/// Ticks once a second and rebuilds only what [builder] returns, so the rest of
+/// the screen is untouched by the timer.
+class Countdown extends StatefulWidget {
+  const Countdown({
     super.key,
     required this.deadline,
-    required this.format,
+    required this.builder,
     this.onDone,
-    this.style,
   });
 
   final DateTime deadline;
-  final String Function(Duration remaining) format;
+  final Widget Function(BuildContext context, Duration remaining) builder;
   final VoidCallback? onDone;
-  final TextStyle? style;
 
   @override
-  State<CountdownText> createState() => _CountdownTextState();
+  State<Countdown> createState() => _CountdownState();
 }
 
-class _CountdownTextState extends State<CountdownText> {
+class _CountdownState extends State<Countdown> {
   late Duration _remaining = _left();
   Timer? _timer;
 
@@ -65,6 +56,5 @@ class _CountdownTextState extends State<CountdownText> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      Text(widget.format(_remaining), style: widget.style);
+  Widget build(BuildContext context) => widget.builder(context, _remaining);
 }

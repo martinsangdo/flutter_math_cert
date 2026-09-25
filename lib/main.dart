@@ -6,6 +6,7 @@ import 'config.dart';
 import 'logic/providers.dart';
 import 'services/ad_service.dart';
 import 'services/cache_service.dart';
+import 'theme/app_theme.dart';
 import 'views/home_screen.dart';
 import 'views/onboarding_screen.dart';
 
@@ -46,7 +47,8 @@ class MathPathwayApp extends ConsumerWidget {
     return MaterialApp(
       title: 'MathPathway Junior',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
       home: hasSelection ? const HomeScreen() : const OnboardingScreen(),
     );
   }
