@@ -1,0 +1,39 @@
+name: mathpathway_junior
+description: "MathPathway Junior - math olympiad practice for students aged 6-18."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  supabase_flutter: ^2.0.0
+  flutter_riverpod: ^2.6.1
+  hive_flutter: ^1.1.0
+  flutter_math_fork: ^0.7.4
+  google_mobile_ads: ^9.1.0
+  uuid: ^4.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon/icon.png
+  remove_alpha_ios: true
+  adaptive_icon_background: "#3F51B5"
+  adaptive_icon_foreground: assets/icon/icon_foreground.png
+  web:
+    generate: true
+    image_path: assets/icon/icon.png
+    background_color: "#3F51B5"
+    theme_color: "#3F51B5"
