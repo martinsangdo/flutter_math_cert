@@ -5,11 +5,21 @@ import 'package:flutter/foundation.dart';
 class AppConfig {
   const AppConfig._();
 
-  static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  static const _rawSupabaseUrl = String.fromEnvironment('SUPABASE_URL');
+
+  /// The project origin only (`https://<ref>.supabase.co`). A pasted
+  /// `/rest/v1/` suffix or trailing slash would 404 every auth call.
+  static String get supabaseUrl {
+    final uri = Uri.tryParse(_rawSupabaseUrl.trim());
+    return uri != null && uri.hasScheme && uri.host.isNotEmpty
+        ? uri.origin
+        : _rawSupabaseUrl.trim();
+  }
+
   static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
   static bool get hasSupabase =>
-      supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+      supabaseUrl.isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
 
   /// Ads only exist on Android/iOS; never on web or desktop.
   static bool get adsSupported =>

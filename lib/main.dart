@@ -26,7 +26,7 @@ Future<void> main() async {
   await Supabase.initialize(
     url: AppConfig.supabaseUrl,
     // ignore: deprecated_member_use -- keeps compatibility with supabase_flutter ^2.0.0
-    anonKey: AppConfig.supabaseAnonKey,
+    anonKey: AppConfig.supabaseAnonKey.trim(),
   );
   await const AdService().init();
 

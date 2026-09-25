@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -34,7 +35,8 @@ class SupabaseService {
       final json = jsonEncode(rows);
       await _cache.writePref('certifications', json);
       return parseCertifications(json);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('fetchCertifications failed: $e');
       final cached = _cache.readPref('certifications');
       if (cached == null) rethrow;
       return parseCertifications(cached);
@@ -70,7 +72,8 @@ class SupabaseService {
       final json = jsonEncode(rows);
       await _cache.writeQuestions(cacheKey, json);
       return parseQuestions(json);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('fetchQuestions failed: $e');
       final cached = _cache.readQuestions(cacheKey);
       if (cached == null) rethrow;
       return parseQuestions(cached);

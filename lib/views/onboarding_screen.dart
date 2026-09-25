@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -55,6 +56,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text('Could not load contests.'),
+                if (kDebugMode)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: SelectableText('$e', textAlign: TextAlign.center),
+                  ),
                 const SizedBox(height: 8),
                 FilledButton(
                   onPressed: () => ref.invalidate(certificationsProvider),

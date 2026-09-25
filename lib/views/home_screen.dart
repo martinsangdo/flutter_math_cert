@@ -12,7 +12,9 @@ class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   Future<void> _practice(BuildContext context, WidgetRef ref) async {
-    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const QuizScreen()));
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const QuizScreen()));
     ref.invalidate(homeDataProvider);
   }
 
@@ -65,7 +67,10 @@ class HomeScreen extends ConsumerWidget {
                 label: const Text('Start practice exam'),
               ),
               const SizedBox(height: 24),
-              Text('Skill tree', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Skill tree',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
               if (d.mastery.isEmpty)
                 const Text('No topics for this contest yet.')
@@ -116,61 +121,70 @@ class _StatusRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final examDate = ref.watch(examDateProvider);
     final text = Theme.of(context).textTheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          flex: 3,
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Exam in', style: text.labelMedium),
-                  const SizedBox(height: 4),
-                  examDate == null
-                      ? TextButton(
-                          onPressed: () => _pickDate(context, ref),
-                          child: const Text('Set exam date'),
-                        )
-                      : InkWell(
-                          onTap: () => _pickDate(context, ref),
-                          child: CountdownText(
-                            key: ValueKey(examDate),
-                            deadline: examDate,
-                            format: formatDaysLeft,
-                            style: text.titleMedium,
+    // IntrinsicHeight: the list gives unbounded height, which `stretch` can't use.
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Exam in', style: text.labelMedium),
+                    const SizedBox(height: 4),
+                    examDate == null
+                        ? TextButton(
+                            onPressed: () => _pickDate(context, ref),
+                            child: const Text('Set exam date'),
+                          )
+                        : InkWell(
+                            onTap: () => _pickDate(context, ref),
+                            child: CountdownText(
+                              key: ValueKey(examDate),
+                              deadline: examDate,
+                              format: formatDaysLeft,
+                              style: text.titleMedium,
+                            ),
                           ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Streak', style: text.labelMedium),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.local_fire_department,
+                          color: Colors.deepOrange,
                         ),
-                ],
+                        const SizedBox(width: 4),
+                        Text(
+                          '$streak day${streak == 1 ? '' : 's'}',
+                          style: text.titleMedium,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        Expanded(
-          flex: 2,
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Streak', style: text.labelMedium),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.local_fire_department, color: Colors.deepOrange),
-                      const SizedBox(width: 4),
-                      Text('$streak day${streak == 1 ? '' : 's'}', style: text.titleMedium),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -182,7 +196,7 @@ class _MasteryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-        return Padding(
+    return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
