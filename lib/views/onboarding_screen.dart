@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../logic/providers.dart';
 import '../models/models.dart';
-import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'widgets/app_logo.dart';
 import 'widgets/bottom_bar.dart';
@@ -75,40 +74,30 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
     return ContentWidth(
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (!changing) ...[const AppLogo(size: 56), const SizedBox(height: 16)],
-                  Text(changing ? 'Change contest' : 'Welcome to MathPathway', style: text.headlineMedium),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Pick the contest you are training for.',
-                    style: text.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
-                  ),
-                ],
-              ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!changing) ...[const AppLogo(size: 56), const SizedBox(height: 16)],
+                Text(changing ? 'Change contest' : 'Welcome to MathPathway', style: text.headlineMedium),
+                const SizedBox(height: 4),
+                Text(
+                  'Pick the contest you are training for.',
+                  style: text.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
             ),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            sliver: SliverGrid.builder(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 260,
-                mainAxisExtent: 184,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-              ),
-              itemCount: certs.length,
-              itemBuilder: (_, i) => _ContestCard(
-                cert: certs[i],
-                accent: AppTheme.accents[i % AppTheme.accents.length],
-                selected: certs[i].id == _certId,
-                onTap: () => _pick(certs[i]),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: _CertGrid(
+                certs: certs,
+                selectedId: _certId,
+                onTap: _pick,
               ),
             ),
           ),
@@ -151,16 +140,79 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 }
 
+/// A grid that sizes its columns and rows so every certification card fits
+/// on screen without scrolling, only falling back to scrolling if there are
+/// too many contests for the cards to stay legible.
+class _CertGrid extends StatelessWidget {
+  const _CertGrid({
+    required this.certs,
+    required this.selectedId,
+    required this.onTap,
+  });
+
+  final List<Certification> certs;
+  final String? selectedId;
+  final ValueChanged<Certification> onTap;
+
+  static const _spacing = 12.0;
+  static const _minCardWidth = 150.0;
+  static const _maxCardWidth = 260.0;
+  static const _minCardHeight = 184.0;
+  static const _maxCardHeight = 210.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = certs.length;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final height = constraints.maxHeight;
+
+        final minColumns = max(1, (width / _maxCardWidth).ceil());
+        final maxColumns = max(minColumns, (width / _minCardWidth).floor());
+        var columns = min(minColumns, n);
+        var rows = (n / columns).ceil();
+        var cardHeight = (height - _spacing * (rows - 1)) / rows;
+
+        while (cardHeight < _minCardHeight && columns < maxColumns && columns < n) {
+          columns++;
+          rows = (n / columns).ceil();
+          cardHeight = (height - _spacing * (rows - 1)) / rows;
+        }
+
+        final cardWidth = (width - _spacing * (columns - 1)) / columns;
+        final fits = cardHeight >= _minCardHeight && height.isFinite;
+        final effectiveHeight = fits ? min(cardHeight, _maxCardHeight) : _minCardHeight;
+        final aspectRatio = cardWidth / effectiveHeight;
+
+        return GridView.builder(
+          physics: fits ? const NeverScrollableScrollPhysics() : null,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: _spacing,
+            crossAxisSpacing: _spacing,
+            childAspectRatio: aspectRatio,
+          ),
+          itemCount: n,
+          itemBuilder: (_, i) => _ContestCard(
+            cert: certs[i],
+            selected: certs[i].id == selectedId,
+            onTap: () => onTap(certs[i]),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _ContestCard extends StatelessWidget {
   const _ContestCard({
     required this.cert,
-    required this.accent,
     required this.selected,
     required this.onTap,
   });
 
   final Certification cert;
-  final Color accent;
   final bool selected;
   final VoidCallback onTap;
 
@@ -178,23 +230,18 @@ class _ContestCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: accent.withValues(alpha: 0.18),
-                child: Icon(Icons.emoji_events_rounded, color: accent, size: 22),
-              ),
-              const Spacer(),
-              if (selected) Icon(Icons.check_circle_rounded, color: scheme.primary),
-            ],
-          ),
-          const Spacer(),
+          if (selected)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Icon(Icons.check_circle_rounded, color: scheme.primary),
+              ],
+            ),
           Text(cert.id, style: text.titleLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
           Text(
             cert.fullName,
-            maxLines: 3,
+            maxLines: 4,
             overflow: TextOverflow.ellipsis,
             style: text.bodyMedium?.copyWith(
               color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,

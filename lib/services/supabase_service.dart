@@ -34,14 +34,17 @@ class SupabaseService {
           ).order('id');
       final json = jsonEncode(rows);
       await _cache.writePref('certifications', json);
-      return parseCertifications(json);
+      return _sortedById(parseCertifications(json));
     } catch (e) {
       debugPrint('fetchCertifications failed: $e');
       final cached = _cache.readPref('certifications');
       if (cached == null) rethrow;
-      return parseCertifications(cached);
+      return _sortedById(parseCertifications(cached));
     }
   }
+
+  List<Certification> _sortedById(List<Certification> certs) =>
+      certs..sort((a, b) => a.id.compareTo(b.id));
 
   /// Published practice sets of an exam level, in curated order, each with the
   /// student's best score. Sets without questions are hidden. The list is
