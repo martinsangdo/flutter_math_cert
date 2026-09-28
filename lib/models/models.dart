@@ -142,6 +142,48 @@ List<ExamSet> parseExamSets(String rawJson) => [
         ExamSet.fromJson(row as Map<String, dynamic>),
     ];
 
+/// Local-prefs key for a set's in-progress attempt, if any.
+String quizDraftKey(int setId) => 'quiz_draft:$setId';
+
+/// A saved in-progress attempt (answers, current question, exam clock), so
+/// the student can resume after the app is closed or killed mid-exam.
+class QuizDraft {
+  const QuizDraft({
+    required this.index,
+    required this.answers,
+    required this.hinted,
+    required this.deadline,
+    required this.startedAt,
+  });
+
+  factory QuizDraft.fromJson(Map<String, dynamic> json) => QuizDraft(
+        index: json['index'] as int,
+        answers: {
+          for (final e in (json['answers'] as Map).entries)
+            int.parse(e.key as String): e.value as String,
+        },
+        hinted: {for (final id in json['hinted'] as List) id as int},
+        deadline: DateTime.parse(json['deadline'] as String),
+        startedAt: DateTime.parse(json['startedAt'] as String),
+      );
+
+  final int index;
+  final Map<int, String> answers;
+  final Set<int> hinted;
+  final DateTime deadline;
+  final DateTime startedAt;
+
+  bool get expired => !deadline.isAfter(DateTime.now());
+
+  Map<String, dynamic> toJson() => {
+        'index': index,
+        'answers': answers.map((id, a) => MapEntry('$id', a)),
+        'hinted': hinted.toList(),
+        'deadline': deadline.toIso8601String(),
+        'startedAt': startedAt.toIso8601String(),
+      };
+}
+
 /// Compares numerically when both sides are integers, otherwise as
 /// case-insensitive trimmed text (option letters).
 bool answersMatch(String? given, String expected) {

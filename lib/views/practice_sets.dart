@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,13 +10,20 @@ import 'quiz_screen.dart';
 import 'widgets/ad_banner.dart';
 import 'widgets/clay_card.dart';
 import 'widgets/content_width.dart';
+import 'widgets/countdown.dart';
 import 'widgets/message_view.dart';
 
 /// How many sets the dashboard previews before "See all".
 const _previewCount = 3;
 
-/// Opens a set: a locked one explains itself, any other asks for confirmation
-/// (the exam clock starts as soon as the first page loads) and then starts.
+QuizDraft? _readDraft(WidgetRef ref, int setId) {
+  final raw = ref.read(cacheServiceProvider).readPref(quizDraftKey(setId));
+  return raw == null ? null : QuizDraft.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+}
+
+/// Opens a set: a locked one explains itself; one left mid-attempt offers to
+/// resume it; any other asks for confirmation (the exam clock starts as soon
+/// as the first page loads) and then starts.
 Future<void> startPractice(BuildContext context, WidgetRef ref, ExamSet set) async {
   if (set.premium) {
     await showDialog<void>(
@@ -27,6 +36,38 @@ Future<void> startPractice(BuildContext context, WidgetRef ref, ExamSet set) asy
     );
     return;
   }
+
+  final draft = _readDraft(ref, set.id);
+  if (draft != null && !draft.expired) {
+    // true = resume, false = start over, null = cancel (incl. backdrop dismiss).
+    final resume = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Resume this exam?'),
+        content: Text(
+          'You left off at question ${draft.index + 1} with '
+          '${formatClock(draft.deadline.difference(DateTime.now()))} left on the clock.',
+        ),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).colorScheme.onSurfaceVariant),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Start over')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Resume')),
+        ],
+      ),
+    );
+    if (!context.mounted || resume == null) return;
+    if (resume) {
+      await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => QuizScreen(set)));
+      return;
+    }
+    await ref.read(cacheServiceProvider).removePref(quizDraftKey(set.id));
+    ref.read(quizDraftVersionProvider.notifier).state++;
+  }
+
   final cert = await ref.read(selectedCertProvider.future);
   if (!context.mounted) return;
   final go = await showModalBottomSheet<bool>(
@@ -145,14 +186,21 @@ class _SetCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Rebuilds this card when a draft is saved or cleared, since drafts live
+    // in local prefs rather than in a watched Riverpod provider.
+    ref.watch(quizDraftVersionProvider);
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final best = set.bestPercent;
+    final draft = set.premium ? null : _readDraft(ref, set.id);
+    final resuming = draft != null && !draft.expired;
     final status = set.premium
         ? 'locked'
-        : best == null
-            ? 'not attempted'
-            : 'best ${(best * 100).round()} percent';
+        : resuming
+            ? 'in progress'
+            : best == null
+                ? 'not attempted'
+                : 'best ${(best * 100).round()} percent';
     final details = [
       if (set.year != null) '${set.year}',
       '${set.questionCount} questions',
@@ -187,7 +235,7 @@ class _SetCard extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 8),
-            _StatusChip(premium: set.premium, best: best),
+            _StatusChip(premium: set.premium, best: best, resuming: resuming),
           ],
         ),
       ),
@@ -196,10 +244,11 @@ class _SetCard extends ConsumerWidget {
 }
 
 class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.premium, required this.best});
+  const _StatusChip({required this.premium, required this.best, required this.resuming});
 
   final bool premium;
   final double? best;
+  final bool resuming;
 
   @override
   Widget build(BuildContext context) {
@@ -207,13 +256,15 @@ class _StatusChip extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final (label, bg, fg) = premium
         ? ('Unlock', scheme.secondaryContainer, scheme.onSecondaryContainer)
-        : best == null
-            ? ('New', scheme.primaryContainer, scheme.onPrimaryContainer)
-            : (
-                'Best ${(best! * 100).round()}%',
-                best! >= ExamSession.passRatio ? scheme.success.withValues(alpha: 0.16) : scheme.surfaceContainerHighest,
-                best! >= ExamSession.passRatio ? scheme.success : scheme.onSurface,
-              );
+        : resuming
+            ? ('Resume', scheme.warning.withValues(alpha: 0.16), scheme.warning)
+            : best == null
+                ? ('New', scheme.primaryContainer, scheme.onPrimaryContainer)
+                : (
+                    'Best ${(best! * 100).round()}%',
+                    best! >= ExamSession.passRatio ? scheme.success.withValues(alpha: 0.16) : scheme.surfaceContainerHighest,
+                    best! >= ExamSession.passRatio ? scheme.success : scheme.onSurface,
+                  );
     return DecoratedBox(
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
       child: Padding(
@@ -261,6 +312,15 @@ class _StartSheet extends StatelessWidget {
                 onPressed: () => Navigator.pop(context, true),
                 icon: const Icon(Icons.play_arrow_rounded, size: 28),
                 label: const Text('Start'),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                style: TextButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  foregroundColor: scheme.onSurfaceVariant,
+                ),
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
               ),
             ],
           ),

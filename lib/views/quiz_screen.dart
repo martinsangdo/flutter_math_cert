@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../logic/providers.dart';
 import '../logic/quiz_controller.dart';
 import '../models/models.dart';
+import '../theme/app_theme.dart';
 import 'result_screen.dart';
 import 'widgets/ad_banner.dart';
 import 'widgets/bottom_bar.dart';
@@ -48,9 +49,21 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
   }
 
   void _next() {
-    _integerController.clear();
-    setState(() => _drawing = false);
     ref.read(quizProvider(widget.set).notifier).next();
+  }
+
+  void _goTo(int index) {
+    ref.read(quizProvider(widget.set).notifier).goTo(index);
+  }
+
+  /// Keeps the answer field and scratchpad in sync whenever the visible
+  /// question changes, whether via Next or a tap on the question navigator.
+  void _onQuestionChanged(QuizState quiz) {
+    final question = quiz.current;
+    _integerController.text = question == null
+        ? ''
+        : quiz.answers[question.id] ?? '';
+    if (_drawing) setState(() => _drawing = false);
   }
 
   Future<void> _watchAdForHint() async {
@@ -76,7 +89,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Leave the exam?'),
-        content: const Text('Your answers will not be saved.'),
+        content: const Text('Your progress is saved — you can resume where you left off.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -97,6 +110,9 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
     final quiz = ref.watch(quizProvider(widget.set));
     final controller = ref.read(quizProvider(widget.set).notifier);
     final question = quiz.current;
+    ref.listen(quizProvider(widget.set), (prev, next) {
+      if (prev?.index != next.index) _onQuestionChanged(next);
+    });
 
     return PopScope(
       canPop: false,
@@ -204,6 +220,13 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
               ),
             ),
           ),
+          _QuestionNavigator(
+            questions: quiz.questions,
+            answers: quiz.answers,
+            current: quiz.index,
+            onSelect: _goTo,
+          ),
+          const SizedBox(height: 8),
           Expanded(
             child: Stack(
               children: [
@@ -384,6 +407,125 @@ class _TimerPill extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Horizontal strip of question numbers so the student can jump straight to
+/// any loaded question; colour shows which ones are already answered.
+class _QuestionNavigator extends StatefulWidget {
+  const _QuestionNavigator({
+    required this.questions,
+    required this.answers,
+    required this.current,
+    required this.onSelect,
+  });
+
+  final List<Question> questions;
+  final Map<int, String> answers;
+  final int current;
+  final ValueChanged<int> onSelect;
+
+  @override
+  State<_QuestionNavigator> createState() => _QuestionNavigatorState();
+}
+
+class _QuestionNavigatorState extends State<_QuestionNavigator> {
+  static const _itemExtent = 44.0;
+  final _scrollController = ScrollController();
+
+  @override
+  void didUpdateWidget(_QuestionNavigator oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.current != widget.current) _scrollToCurrent();
+  }
+
+  void _scrollToCurrent() {
+    if (!_scrollController.hasClients) return;
+    final target = (widget.current - 2) * _itemExtent;
+    _scrollController.animateTo(
+      target.clamp(0, _scrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 40,
+      child: ListView.builder(
+        controller: _scrollController,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: widget.questions.length,
+        itemExtent: _itemExtent,
+        itemBuilder: (context, i) {
+          final answered = widget.answers.containsKey(widget.questions[i].id);
+          final isCurrent = i == widget.current;
+          final Color background;
+          final Color foreground;
+          final Color border;
+          if (isCurrent) {
+            background = scheme.primary;
+            foreground = scheme.onPrimary;
+            border = scheme.primary;
+          } else if (answered) {
+            background = scheme.success;
+            foreground = Colors.white;
+            border = scheme.success;
+          } else {
+            background = scheme.surface;
+            foreground = scheme.onSurfaceVariant;
+            border = scheme.outlineVariant;
+          }
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Semantics(
+              button: true,
+              selected: isCurrent,
+              label:
+                  'Question ${i + 1}${answered ? ', answered' : ', not answered'}',
+              excludeSemantics: true,
+              child: InkWell(
+                onTap: () => widget.onSelect(i),
+                customBorder: const CircleBorder(),
+                child: Center(
+                  child: SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: background,
+                        border: Border.all(color: border, width: 2),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${i + 1}',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.labelLarge?.copyWith(
+                            color: foreground,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

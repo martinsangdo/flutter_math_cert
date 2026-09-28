@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,6 +63,8 @@ class QuizController extends AutoDisposeFamilyNotifier<QuizState, ExamSet> {
   var _disposed = false;
   var _finishing = false;
 
+  String get _draftKey => quizDraftKey(arg.id);
+
   @override
   QuizState build(ExamSet arg) {
     ref.onDispose(() => _disposed = true);
@@ -71,10 +74,19 @@ class QuizController extends AutoDisposeFamilyNotifier<QuizState, ExamSet> {
 
   Future<void> load() async {
     state = state.copyWith(loading: true);
+    final cache = ref.read(cacheServiceProvider);
     final service = ref.read(supabaseServiceProvider);
     try {
       _cert = await ref.read(selectedCertProvider.future);
       final target = arg.questionCount;
+
+      final draftJson = cache.readPref(_draftKey);
+      final draft = draftJson == null
+          ? null
+          : QuizDraft.fromJson(jsonDecode(draftJson) as Map<String, dynamic>);
+      // A draft whose time already ran out must be scored against the full
+      // question list, so its state is only published once loading finishes.
+      final expired = draft?.expired ?? false;
 
       final loaded = <Question>[];
       // Paginated: pages of [pageSize] until the exam is full or rows run out.
@@ -86,19 +98,40 @@ class QuizController extends AutoDisposeFamilyNotifier<QuizState, ExamSet> {
         );
         if (_disposed) return;
         loaded.addAll(page);
-        if (offset == 0) {
-          _startedAt = DateTime.now();
-          state = state.copyWith(
-            deadline: _startedAt.add(Duration(minutes: arg.minutes(_cert))),
-          );
-        }
+        if (offset == 0 && !expired) _restore(draft);
         // Show the first page immediately; keep appending the rest quietly.
         state = state.copyWith(questions: List.of(loaded), loading: false);
         if (page.length < pageSize) break;
       }
+      if (expired) _restore(draft);
     } catch (e) {
       if (!_disposed) state = state.copyWith(loading: false, error: e);
     }
+  }
+
+  /// Applies a saved draft (or starts the clock fresh when there is none).
+  void _restore(QuizDraft? draft) {
+    _startedAt = draft?.startedAt ?? DateTime.now();
+    state = state.copyWith(
+      deadline: draft?.deadline ?? _startedAt.add(Duration(minutes: arg.minutes(_cert))),
+      index: draft?.index ?? 0,
+      answers: draft?.answers ?? const {},
+      hinted: draft?.hinted ?? const {},
+    );
+  }
+
+  void _saveDraft() {
+    final deadline = state.deadline;
+    if (deadline == null) return;
+    final draft = QuizDraft(
+      index: state.index,
+      answers: state.answers,
+      hinted: state.hinted,
+      deadline: deadline,
+      startedAt: _startedAt,
+    );
+    ref.read(cacheServiceProvider).writePref(_draftKey, jsonEncode(draft.toJson()));
+    ref.read(quizDraftVersionProvider.notifier).state++;
   }
 
   void answer(String value) {
@@ -107,15 +140,29 @@ class QuizController extends AutoDisposeFamilyNotifier<QuizState, ExamSet> {
     final answers = Map.of(state.answers);
     value.trim().isEmpty ? answers.remove(q.id) : answers[q.id] = value.trim();
     state = state.copyWith(answers: answers);
+    _saveDraft();
   }
 
   void unlockHint() {
     final q = state.current;
-    if (q != null) state = state.copyWith(hinted: {...state.hinted, q.id});
+    if (q == null) return;
+    state = state.copyWith(hinted: {...state.hinted, q.id});
+    _saveDraft();
   }
 
   void next() {
-    if (!state.isLast) state = state.copyWith(index: state.index + 1);
+    if (!state.isLast) {
+      state = state.copyWith(index: state.index + 1);
+      _saveDraft();
+    }
+  }
+
+  /// Jumps to any already-loaded question (used by the question navigator).
+  void goTo(int index) {
+    if (index >= 0 && index < state.questions.length) {
+      state = state.copyWith(index: index);
+      _saveDraft();
+    }
   }
 
   /// Scores the exam (points, minus penalties when the contest has negative
@@ -124,6 +171,8 @@ class QuizController extends AutoDisposeFamilyNotifier<QuizState, ExamSet> {
   Future<ExamSession?> finish() async {
     if (_finishing) return null;
     _finishing = true;
+    ref.read(cacheServiceProvider).removePref(_draftKey);
+    ref.read(quizDraftVersionProvider.notifier).state++;
 
     final service = ref.read(supabaseServiceProvider);
     final scores = <int, ({String name, int correct, int total})>{};

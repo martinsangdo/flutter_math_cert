@@ -9,6 +9,11 @@ import '../services/supabase_service.dart';
 /// Overridden in `main()` once Hive is open.
 final cacheServiceProvider = Provider<CacheService>((_) => throw UnimplementedError());
 
+/// Bumped whenever a quiz draft is saved or cleared, so widgets showing a
+/// "Resume" chip refresh without a network round trip (drafts live in local
+/// prefs, outside Riverpod's own state).
+final quizDraftVersionProvider = StateProvider<int>((_) => 0);
+
 final adServiceProvider = Provider<AdService>((_) => const AdService());
 
 final supabaseServiceProvider = Provider<SupabaseService>(

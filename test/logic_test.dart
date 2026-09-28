@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -117,6 +118,24 @@ void main() {
     expect(session.toRow()['set_id'], 4);
     expect(session.toRow()['max_score'], 24);
     expect(session.passed, isTrue);
+  });
+
+  test('quiz draft round-trips through JSON and detects expiry', () {
+    final deadline = DateTime(2026, 9, 25, 10, 30);
+    final draft = QuizDraft(
+      index: 3,
+      answers: {7: 'B', 9: '-12'},
+      hinted: {9},
+      deadline: deadline,
+      startedAt: DateTime(2026, 9, 25, 10),
+    );
+    final decoded = QuizDraft.fromJson(jsonDecode(jsonEncode(draft.toJson())) as Map<String, dynamic>);
+    expect(decoded.index, 3);
+    expect(decoded.answers, {7: 'B', 9: '-12'});
+    expect(decoded.hinted, {9});
+    expect(decoded.deadline, deadline);
+    expect(QuizDraft.fromJson(decoded.toJson()..['deadline'] = '2000-01-01T00:00:00.000').expired, isTrue);
+    expect(decoded.expired, deadline.isBefore(DateTime.now()));
   });
 
   test('timestamps without a zone are read as UTC', () {

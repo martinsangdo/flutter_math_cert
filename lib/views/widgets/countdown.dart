@@ -46,6 +46,11 @@ class _CountdownState extends State<Countdown> {
           widget.onDone?.call();
         }
       });
+    } else {
+      // The deadline was already in the past when this widget appeared
+      // (e.g. a resumed exam draft) — the periodic timer above would never
+      // fire, so tell the caller right away instead.
+      WidgetsBinding.instance.addPostFrameCallback((_) => widget.onDone?.call());
     }
   }
 

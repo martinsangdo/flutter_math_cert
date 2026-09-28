@@ -22,14 +22,21 @@ class HomeScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 16,
-        title: const Row(
-          children: [
-            AppLogo(size: 36),
-            SizedBox(width: 10),
-            Flexible(
-              child: Text('MathPathway', overflow: TextOverflow.ellipsis),
-            ),
-          ],
+        title: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const OnboardingScreen()),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppLogo(size: 36),
+              SizedBox(width: 10),
+              Flexible(
+                child: Text('MathPathway', overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
         ),
         actions: [
           IconButton(
