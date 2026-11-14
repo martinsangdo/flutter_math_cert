@@ -9,6 +9,7 @@ import 'services/cache_service.dart';
 import 'theme/app_theme.dart';
 import 'views/home_screen.dart';
 import 'views/onboarding_screen.dart';
+import 'views/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,10 +32,12 @@ Future<void> main() async {
   );
   await const AdService().init();
 
-  runApp(ProviderScope(
-    overrides: [cacheServiceProvider.overrideWithValue(cache)],
-    child: const MathPathwayApp(),
-  ));
+  runApp(
+    ProviderScope(
+      overrides: [cacheServiceProvider.overrideWithValue(cache)],
+      child: const MathPathwayApp(),
+    ),
+  );
 }
 
 class MathPathwayApp extends ConsumerWidget {
@@ -49,7 +52,9 @@ class MathPathwayApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      home: hasSelection ? const HomeScreen() : const OnboardingScreen(),
+      home: SplashScreen(
+        child: hasSelection ? const HomeScreen() : const OnboardingScreen(),
+      ),
     );
   }
 }
@@ -59,17 +64,17 @@ class _MissingConfigApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Text(
-                'Missing Supabase config.\nRun with\n'
-                '--dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...',
-                textAlign: TextAlign.center,
-              ),
-            ),
+    home: Scaffold(
+      body: Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Missing Supabase config.\nRun with\n'
+            '--dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...',
+            textAlign: TextAlign.center,
           ),
         ),
-      );
+      ),
+    ),
+  );
 }

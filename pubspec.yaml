@@ -27,6 +27,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon/icon.png
+    - assets/splash/splash_icon_512x512.png
   fonts:
     - family: Baloo2
       fonts:
