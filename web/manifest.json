@@ -1,6 +1,6 @@
 {
-    "name": "mathpathway_junior",
-    "short_name": "mathpathway_junior",
+    "name": "MathPathway Practice Contest",
+    "short_name": "MathPathway Practice Contest",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#2563EB",

@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-MathPathway Junior: a Flutter (Android/iOS, plus web for testing) math-olympiad practice app. The client talks **directly** to Supabase (no server in between); Row Level Security is the only authorization layer. Targets low-end phones (2GB RAM), so keep memory and rebuild cost small.
+MathPathway Practice Contest: a Flutter (Android/iOS, plus web for testing) math-olympiad practice app. The client talks **directly** to Supabase (no server in between); Row Level Security is the only authorization layer. Targets low-end phones (2GB RAM), so keep memory and rebuild cost small.
 
 ## Commands
 

@@ -48,7 +48,7 @@ class MathPathwayApp extends ConsumerWidget {
     // Read once: after onboarding, screens navigate themselves.
     final hasSelection = ref.read(selectionProvider) != null;
     return MaterialApp(
-      title: 'MathPathway Junior',
+      title: 'MathPathway Practice Contest',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,

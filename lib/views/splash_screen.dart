@@ -48,7 +48,7 @@ class _SplashScreenState extends State<SplashScreen> {
             width: 256,
             height: 256,
             fit: BoxFit.contain,
-            semanticLabel: 'MathPathway Junior',
+            semanticLabel: 'MathPathway Practice Contest',
             frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
               if (frame != null || wasSynchronouslyLoaded) _startTimer();
               return child;

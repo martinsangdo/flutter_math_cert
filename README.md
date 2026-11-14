@@ -1,4 +1,4 @@
-# MathPathway Junior
+# MathPathway Practice Contest
 
 Flutter + Supabase math-olympiad practice app (Android/iOS). No middle server: the app talks to Supabase directly and RLS enforces access.
 
