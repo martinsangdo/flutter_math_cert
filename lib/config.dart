@@ -37,13 +37,13 @@ class AppConfig {
   static String get bannerUnitId => kReleaseMode && _bannerOverride.isNotEmpty
       ? _bannerOverride
       : _isAndroid
-          ? 'ca-app-pub-3940256099942544/6300978111'
+          ? 'ca-app-pub-8762959223087619/7887222049'
           : 'ca-app-pub-3940256099942544/2934735716';
 
   static String get rewardedUnitId =>
       kReleaseMode && _rewardedOverride.isNotEmpty
           ? _rewardedOverride
           : _isAndroid
-              ? 'ca-app-pub-3940256099942544/5224354917'
+              ? 'ca-app-pub-8762959223087619/9577763571'
               : 'ca-app-pub-3940256099942544/1712485313';
 }

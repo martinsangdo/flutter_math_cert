@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-enum QuestionType { mcq, integer }
+enum QuestionType { mcq, integer, proof }
 
 class ExamLevel {
   const ExamLevel({
@@ -124,6 +124,15 @@ class ExamSet {
 
   int minutes(Certification cert) => timeMinutes ?? cert.timeMinutes;
 
+  /// Grade-specific papers currently carry their grade in the title, since
+  /// exam_sets has no grade column. Unlabelled papers serve the whole level.
+  bool isForGrade(int grade) {
+    final match = _gradeInTitle.firstMatch(title);
+    return match == null || int.parse(match.group(1)!) == grade;
+  }
+
+  static final _gradeInTitle = RegExp(r'\bGrade\s+(\d+)\b', caseSensitive: false);
+
   ExamSet withBest(double? percent) => ExamSet(
         id: id,
         levelId: levelId,
@@ -225,7 +234,9 @@ class Question {
       topicTitle: (json['topics'] as Map<String, dynamic>?)?['title'] as String? ?? '',
       type: '${json['question_type']}'.toUpperCase().startsWith('INTEGER')
           ? QuestionType.integer
-          : QuestionType.mcq,
+          : '${json['question_type']}'.toUpperCase() == 'PROOF'
+              ? QuestionType.proof
+              : QuestionType.mcq,
       stem: json['stem_text'] as String,
       latex: json['latex_content'] as String?,
       imageUrl: json['image_url'] as String?,
@@ -256,7 +267,9 @@ class Question {
   final String? hint;
   final String solution;
 
-  bool isCorrect(String? given) => answersMatch(given, answer);
+  bool get isAutoGraded => type != QuestionType.proof;
+
+  bool isCorrect(String? given) => isAutoGraded && answersMatch(given, answer);
 }
 
 List<Question> parseQuestions(String rawJson) => [
@@ -285,6 +298,7 @@ class ExamSession {
     required this.total,
     required this.durationSeconds,
     required this.topics,
+    this.ungradedCount = 0,
   });
 
   /// Share of available points needed to count as passed. The schema has
@@ -299,6 +313,7 @@ class ExamSession {
   final int correct;
   final int total;
   final int durationSeconds;
+  final int ungradedCount;
 
   /// Keyed by topic id.
   final Map<int, TopicScore> topics;

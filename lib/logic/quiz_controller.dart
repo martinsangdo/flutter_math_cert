@@ -22,7 +22,7 @@ class QuizState {
   final List<Question> questions;
   final int index;
 
-  /// Question id -> given answer (option letter or integer text).
+  /// Question id -> given answer (option letter, integer, or written proof).
   final Map<int, String> answers;
 
   /// Question ids whose hint was unlocked by a rewarded ad.
@@ -181,6 +181,7 @@ class QuizController extends AutoDisposeFamilyNotifier<QuizState, ExamSet> {
     var maxScore = 0.0;
 
     for (final q in state.questions) {
+      if (!q.isAutoGraded) continue;
       final given = state.answers[q.id];
       final ok = q.isCorrect(given);
       maxScore += q.points;
@@ -208,7 +209,8 @@ class QuizController extends AutoDisposeFamilyNotifier<QuizState, ExamSet> {
       score: max(0, score),
       maxScore: maxScore,
       correct: correct,
-      total: state.questions.length,
+      total: state.questions.where((q) => q.isAutoGraded).length,
+      ungradedCount: state.questions.where((q) => !q.isAutoGraded).length,
       durationSeconds: DateTime.now().difference(_startedAt).inSeconds,
       topics: scores.map((id, s) => MapEntry(id, TopicScore(s.name, s.correct, s.total))),
     );

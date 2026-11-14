@@ -8,6 +8,55 @@ import 'package:mathpathway_junior/services/cache_service.dart';
 import 'package:mathpathway_junior/services/supabase_service.dart';
 
 void main() {
+  test('proof questions keep their prompt and solution without MCQ options', () {
+    final question = Question.fromJson({
+      'id': 99,
+      'topic_id': 3,
+      'question_type': 'PROOF',
+      'stem_text': 'Prove that the sum of two odd numbers is even.',
+      'correct_answer': 'See proof',
+      'detailed_solution_latex': r'$(2a+1)+(2b+1)=2(a+b+1)$',
+    });
+    expect(question.type, QuestionType.proof);
+    expect(question.options, isEmpty);
+    expect(question.solution, contains('2(a+b+1)'));
+  });
+
+  test('quiz drafts preserve multiline proof answers', () {
+    const proof = 'Let a and b be integers.\nTheir sum is 2(a+b+1).';
+    final draft = QuizDraft(
+      index: 0,
+      answers: {99: proof},
+      hinted: {},
+      deadline: DateTime(2027),
+      startedAt: DateTime(2026),
+    );
+    final restored = QuizDraft.fromJson(
+      jsonDecode(jsonEncode(draft.toJson())) as Map<String, dynamic>,
+    );
+    expect(restored.answers[99], proof);
+  });
+
+  test('practice sets match the exact grade or serve the whole division', () {
+    ExamSet paper(String title) => ExamSet(
+      id: 1, levelId: 1, title: title, questionCount: 5, premium: false,
+    );
+    final sets = [
+      paper('MOEMS 2026 Practice - DIVISION_E - Grade 6'),
+      paper('MOEMS 2026 Practice - DIVISION_E - Grade 5'),
+      paper('MOEMS 2026 Practice - DIVISION_E - Grade 4'),
+      paper('Division E Past Paper'),
+    ];
+    expect(sets.where((s) => s.isForGrade(4)).map((s) => s.title), [
+      'MOEMS 2026 Practice - DIVISION_E - Grade 4',
+      'Division E Past Paper',
+    ]);
+    expect(sets.where((s) => s.isForGrade(6)).first, sets.first);
+    expect(paper('Grade 10').isForGrade(1), isFalse);
+    expect(paper('grade  4').isForGrade(4), isTrue);
+    expect(sets[2].withBest(0.8).isForGrade(4), isTrue);
+  });
+
   test('answersMatch compares ints numerically and ignores blanks', () {
     expect(answersMatch(' 05 ', '5'), isTrue);
     expect(answersMatch('-3', '-3'), isTrue);

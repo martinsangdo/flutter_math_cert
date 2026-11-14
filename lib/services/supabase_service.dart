@@ -93,14 +93,15 @@ class SupabaseService {
     }
   }
 
-  /// One page of gradable questions of [setId], in the set's order. Falls back
+  /// One page of questions of [setId], in the set's order. Falls back
   /// to the offline cache when the network call fails.
   Future<List<Question>> fetchQuestions({
     required int setId,
     int limit = 10,
     int offset = 0,
   }) async {
-    final cacheKey = 'set:$setId:$offset:$limit';
+    // Versioned because older pages excluded proof questions.
+    final cacheKey = 'set:v2:$setId:$offset:$limit';
     try {
       await _uid();
       final rows = await _client
@@ -111,7 +112,6 @@ class SupabaseService {
             'kid_friendly_hint, detailed_solution_latex, topics(title))',
           )
           .eq('set_id', setId)
-          .neq('questions.question_type', 'PROOF') // proofs can't be auto-graded
           .order('position')
           .range(offset, offset + limit - 1);
       final json = jsonEncode([for (final r in rows) r['questions']]);

@@ -27,14 +27,14 @@ class QuizScreen extends ConsumerStatefulWidget {
 }
 
 class _QuizScreenState extends ConsumerState<QuizScreen> {
-  final _integerController = TextEditingController();
+  final _answerController = TextEditingController();
   var _drawing = false;
   var _adBusy = false;
   var _submitting = false;
 
   @override
   void dispose() {
-    _integerController.dispose();
+    _answerController.dispose();
     super.dispose();
   }
 
@@ -60,7 +60,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
   /// question changes, whether via Next or a tap on the question navigator.
   void _onQuestionChanged(QuizState quiz) {
     final question = quiz.current;
-    _integerController.text = question == null
+    _answerController.text = question == null
         ? ''
         : quiz.answers[question.id] ?? '';
     if (_drawing) setState(() => _drawing = false);
@@ -248,11 +248,30 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
                               controller.answer(option.key);
                             },
                           )
+                      else if (question.type == QuestionType.proof)
+                        ClayCard(
+                          padding: const EdgeInsets.all(16),
+                          child: TextField(
+                            controller: _answerController,
+                            keyboardType: TextInputType.multiline,
+                            textInputAction: TextInputAction.newline,
+                            minLines: 6,
+                            maxLines: 12,
+                            style: Theme.of(context).textTheme.bodyLarge,
+                            decoration: const InputDecoration(
+                              labelText: 'Your proof',
+                              alignLabelWithHint: true,
+                              hintText: 'Explain your reasoning step by step.',
+                              helperText: 'Not automatically graded.',
+                            ),
+                            onChanged: controller.answer,
+                          ),
+                        )
                       else
                         ClayCard(
                           padding: const EdgeInsets.all(12),
                           child: TextField(
-                            controller: _integerController,
+                            controller: _answerController,
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.headlineSmall,
                             keyboardType: const TextInputType.numberWithOptions(
@@ -363,9 +382,11 @@ class _HintHeader extends StatelessWidget {
     children: [
       Icon(icon, color: color, size: 22),
       const SizedBox(width: 8),
-      Text(
-        label,
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(color: color),
+      Flexible(
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(color: color),
+        ),
       ),
     ],
   );
